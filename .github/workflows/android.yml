@@ -25,6 +25,11 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Préparer le jeu
+        run: |
+          mkdir -p app/src/main/assets
+          cp index.html app/src/main/assets/index.html
+
       - name: Construire l'APK
         run: gradle assembleDebug
 
