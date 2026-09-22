@@ -32,7 +32,7 @@ button.secondary{background:#fff}
   <img src="icon.png" alt="Jules Enock Lestekè">
   <div class="title"><b>Jules Enock Lestekè</b><br><span>Jwèt Mab • Prototype 1</span></div>
 </header>
-<div id="hud"><span>🏆 Points : <b id="score">0</b></span><span>🎯 Billes : <b id="left">10</b></span><span>🔵 Tour : <b id="turn">1</b></span></div>
+<div id="hud"><span>🏆 Points : <b id="score">0</b></span><span>🎯 Billes : <b id="left">15</b></span><span>🔵 Tour : <b id="turn">1</b></span></div>
 <div id="game">
   <canvas id="canvas"></canvas>
   <div id="message">Glisse depuis la bille blanche vers les billes à toucher.</div>
@@ -40,8 +40,8 @@ button.secondary{background:#fff}
     <div class="card">
       <h2>🇭🇹 Jwèt Mab</h2>
       <p><b>Objectif :</b> touche les billes dans le cercle avec ta bille tireuse.</p>
-      <p>👆 Fais glisser ton doigt depuis la bille blanche dans la direction opposée à ton tir, puis relâche.</p>
-      <p>Chaque bille sortie du cercle rapporte <b>10 points</b>.</p>
+      <p>👆 Touche la bille blanche puis fais glisser ton doigt <b>vers la direction où tu veux tirer</b>.</p>
+      <p>Chaque bille sortie du cercle rapporte <b>10 points</b>. Tu as <b>15 tirs</b>.</p>
       <button id="start">COMMENCER</button>
     </div>
   </div>
@@ -123,9 +123,9 @@ function startDrag(e){
 function moveDrag(e){if(dragging){aim=pointerPos(e);e.preventDefault()}}
 function endDrag(e){
   if(!dragging)return; dragging=false;
-  const p=aim,dx=shooter.x-p.x,dy=shooter.y-p.y,L=Math.hypot(dx,dy);
+  const p=aim,dx=p.x-shooter.x,dy=p.y-shooter.y,L=Math.hypot(dx,dy);
   if(L<12)return;
-  const power=Math.min(22,L*.10+3), ux=dx/L,uy=dy/L;
+  const power=Math.min(34,L*.18+5), ux=dx/L,uy=dy/L;
   shooter.vx=ux*power;shooter.vy=uy*power;
   shots--;updateHud();shoot();
 }
@@ -143,8 +143,8 @@ function shoot(){
         const nx=(m.x-shooter.x)/(d||1),ny=(m.y-shooter.y)/(d||1);
         const push=2.2;
         m.x+=nx*push;m.y+=ny*push;
-        m.vx=nx*Math.max(2,Math.hypot(shooter.vx,shooter.vy)*.8);
-        m.vy=ny*Math.max(2,Math.hypot(shooter.vx,shooter.vy)*.8);
+        m.vx=nx*Math.max(5,Math.hypot(shooter.vx,shooter.vy)*1.05);
+        m.vy=ny*Math.max(5,Math.hypot(shooter.vx,shooter.vy)*1.05);
         shooter.vx*=.45;shooter.vy*=.45;
       }
     }
@@ -152,7 +152,7 @@ function shoot(){
       if(!m.active)continue;
       m.x+=m.vx;m.y+=m.vy;m.vx*=.93;m.vy*=.93;
       const d=Math.hypot(m.x-cx,m.y-cy);
-      if(d>R+25){m.active=false;score+=10}
+      if(d>R+10){m.active=false;score+=10}
       if(d>R-m.r){const nx=(m.x-cx)/d,ny=(m.y-cy)/d; m.x=cx+nx*(R-m.r);m.y=cy+ny*(R-m.r);m.vx*=-.65;m.vy*=-.65}
     }
     if(!moving && Math.abs(shooter.vx)<.25 && Math.abs(shooter.vy)<.25){
