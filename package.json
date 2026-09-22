@@ -1,0 +1,9 @@
+{
+  "name": "jules-enock-lesteke",
+  "version": "1.0.0",
+  "description": "Jules Enock Lestekè - Jwèt Mab",
+  "private": true,
+  "scripts": {
+    "build": "echo Build Android"
+  }
+}
