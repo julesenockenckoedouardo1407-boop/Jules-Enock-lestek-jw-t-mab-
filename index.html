@@ -31,11 +31,11 @@ button.white{background:#fff}
 </head>
 <body>
 <div id="app">
-<header><img src="icon.png"><div><h1>Jules Enock Lestekè</h1><small>🇭🇹 Jwèt Mab • Prototype 5 — comptage automatique</small></div></header>
+<header><img src="icon.png"><div><h1>Jules Enock Lestekè</h1><small>🇭🇹 Jwèt Mab • Prototype 6 — contrôle tactile réparé</small></div></header>
 <div id="hud"><span>🏆 <b id="score">0</b></span><span>🔵 Dans le cercle : <b id="left">10</b></span><span>🎯 Tirs : <b id="shots">15</b></span></div>
 <div id="game">
 <canvas id="c"></canvas>
-<div id="tip">Déplace ⚪ autour du cercle • puis tire vers une bille</div>
+<div id="tip">1️⃣ Glisse ⚪ autour du cercle • 2️⃣ Relâche • 3️⃣ Glisse depuis ⚪ vers une bille pour tirer</div>
 <div id="intro"><div class="card"><h2>🇭🇹 Jwèt Mab</h2>
 <p><b>1.</b> Déplace la bille blanche autour du cercle pour choisir ton point de tir.</p>
 <p><b>2.</b> Fais glisser depuis la bille blanche vers la direction voulue. Plus tu glisses loin, plus le tir est puissant.</p>
@@ -67,6 +67,109 @@ function updateHUD(){
   const t=document.getElementById('shots'); if(t) t.textContent=shots;
   const w=document.getElementById('won'); if(w) w.textContent=won;
 }
+
+
+/* ===== CONTRÔLE V6 : tactile + souris, placement puis tir ===== */
+function canvasPoint(ev){
+  const r = canvas.getBoundingClientRect();
+  return {
+    x:(ev.clientX-r.left)*(canvas.width/r.width),
+    y:(ev.clientY-r.top)*(canvas.height/r.height)
+  };
+}
+
+function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+
+function pointerDown(ev){
+  if(ev.cancelable) ev.preventDefault();
+  if(phase!=='place' && phase!=='aim') return;
+  const p=canvasPoint(ev);
+
+  if(phase==='place'){
+    // Large hit area around the white marble.
+    if(dist(p,shooter) <= shooter.r+32){
+      dragMode='place';
+      placingPointer=true;
+      try{canvas.setPointerCapture(ev.pointerId)}catch(e){}
+      return;
+    }
+  } else if(phase==='aim'){
+    if(dist(p,shooter) <= shooter.r+34){
+      dragMode='aim';
+      aimingPointer=true;
+      aimX=p.x; aimY=p.y;
+      try{canvas.setPointerCapture(ev.pointerId)}catch(e){}
+      render();
+      return;
+    }
+  }
+}
+
+function pointerMove(ev){
+  if(ev.cancelable) ev.preventDefault();
+  const p=canvasPoint(ev);
+
+  if(phase==='place' && dragMode==='place'){
+    const dx=p.x-cx, dy=p.y-cy;
+    if(Math.hypot(dx,dy)>1){
+      shooter.angle=Math.atan2(dy,dx);
+      placeShooter();
+      render();
+    }
+    return;
+  }
+
+  if(phase==='aim' && dragMode==='aim'){
+    aimX=p.x; aimY=p.y;
+    render();
+  }
+}
+
+function pointerUp(ev){
+  if(ev.cancelable) ev.preventDefault();
+
+  if(phase==='place' && dragMode==='place'){
+    dragMode=null;
+    placingPointer=false;
+    phase='aim';
+    // Keep the white marble exactly where the player selected it.
+    placeShooter();
+    render();
+    return;
+  }
+
+  if(phase==='aim' && dragMode==='aim'){
+    dragMode=null;
+    aimingPointer=false;
+
+    const dx=aimX-shooter.x, dy=aimY-shooter.y;
+    const L=Math.hypot(dx,dy);
+
+    // Do not fire if the player released directly on the marble.
+    if(L<8){
+      render();
+      return;
+    }
+
+    // Power based on drag distance, with a generous controllable range.
+    const power=Math.min(34, Math.max(5, 3 + L*0.22));
+    shooter.vx=(dx/L)*power;
+    shooter.vy=(dy/L)*power;
+
+    shots--;
+    shotsUsed++;
+    phase='moving';
+    updateHUD();
+    render();
+    requestAnimationFrame(simulate);
+  }
+}
+
+canvas.style.touchAction='none';
+canvas.addEventListener('pointerdown',pointerDown,{passive:false});
+canvas.addEventListener('pointermove',pointerMove,{passive:false});
+canvas.addEventListener('pointerup',pointerUp,{passive:false});
+canvas.addEventListener('pointercancel',pointerUp,{passive:false});
 
 function newGame(){
  score=0;shots=15;phase='place';balls=[];
@@ -124,37 +227,6 @@ function draw(){
  requestAnimationFrame(draw);
 }
 
-function start(e){
- if(phase!=='place'&&phase!=='aim')return;
- const q=p(e);
- if(phase==='place'){
-   if(distance(q,shooter)<48){dragMode='place';e.preventDefault()}
- }else if(phase==='aim'){
-   if(distance(q,shooter)<48){dragMode='aim';aimX=q.x;aimY=q.y;e.preventDefault()}
- }
-}
-function move(e){
- if(!dragMode)return;
- const q=p(e);
- if(dragMode==='place'){
-   // Move only on the legal outside ring: player chooses angle around the circle.
-   let a=Math.atan2(q.y-cy,q.x-cx);
-   shooter.angle=a;placeShooter();
- }else{aimX=q.x;aimY=q.y}
- e.preventDefault();
-}
-function end(e){
- if(!dragMode)return;
- if(dragMode==='place'){dragMode=null;phase='aim';return}
- const dx=aimX-shooter.x,dy=aimY-shooter.y,L=Math.hypot(dx,dy);
- dragMode=null;
- if(L<12)return;
- const ux=dx/L,uy=dy/L;
- // Deliberately strong but controllable: 4..36 px/frame.
- const power=Math.min(36,4+L*.25);
- shooter.vx=ux*power;shooter.vy=uy*power;
- shots--; shotsUsed++;phase='moving';hud();simulate();
-}
 
 function simulate(){
  let stable=0,frames=0;

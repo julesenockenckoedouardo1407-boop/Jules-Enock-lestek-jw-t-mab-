@@ -1,21 +1,13 @@
 # Jules Enock Lestekè — Jwèt Mab
-## Prototype 5 — Comptage automatique
+## Prototype 6 — contrôle tactile réparé
 
-Cette version conserve la mécanique du prototype 4 :
-- bille blanche hors du cercle au départ ;
-- déplacement de la bille blanche autour du cercle pour choisir l'angle ;
-- visée + puissance avant le tir ;
-- collisions et friction ;
-- une bille est gagnée uniquement lorsqu'elle sort réellement du cercle ;
-- la bille blanche n'est pas téléportée dehors après un mauvais tir ;
-- si la bille blanche reste dans le cercle après l'arrêt, la partie est perdue.
+Cette version corrige la commande de jeu :
+1. Appuyer sur la bille blanche.
+2. Faire glisser la bille blanche autour du cercle pour choisir sa position.
+3. Relâcher.
+4. Appuyer sur la bille blanche et faire glisser dans la direction voulue.
+5. Relâcher pour tirer.
 
-Nouveautés :
-- comptage automatique des billes gagnées ;
-- comptage exact si plusieurs billes sortent sur un seul tir ;
-- aucune bille ne peut être comptée deux fois ;
-- compteur des tirs utilisés ;
-- score mis à jour automatiquement ;
-- résumé final : billes gagnées, tirs utilisés et score final.
-
-Le fichier `icon.png` est conservé dans le projet.
+Le contrôle utilise Pointer Events, ce qui fonctionne avec l'écran tactile Android et la souris.
+La bille blanche n'est pas téléportée automatiquement après un tir raté.
+Le comptage automatique des billes gagnées, des tirs utilisés et du score est conservé.
