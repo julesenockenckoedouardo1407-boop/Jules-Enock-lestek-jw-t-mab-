@@ -1,0 +1,29 @@
+name: Construire APK Jules Enock Lestekè
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Télécharger le projet
+        uses: actions/checkout@v4
+
+      - name: Installer Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Donner les permissions à Gradle
+        run: chmod +x gradlew
+
+      - name: Construire APK
+        run: ./gradlew assembleDebug
+
+      - name: Publier l'
