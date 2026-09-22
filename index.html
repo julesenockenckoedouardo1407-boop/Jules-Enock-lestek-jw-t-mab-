@@ -9,223 +9,234 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#062d18;font-family:system-ui,Arial}
 #app{height:100%;max-width:760px;margin:auto;display:flex;flex-direction:column;color:#fff}
-header{height:68px;display:flex;align-items:center;padding:7px 11px;gap:10px;background:#075b2a;border-bottom:2px solid #f5c542}
+header{height:67px;display:flex;align-items:center;padding:7px 11px;gap:10px;background:#075b2a;border-bottom:2px solid #f5c542}
 header img{width:52px;height:52px;border-radius:13px;object-fit:cover}
 h1{font-size:19px;margin:0;color:#ffd43b} header small{font-weight:700}
-#hud{height:42px;display:flex;justify-content:space-around;align-items:center;background:#063d20;font-weight:900;font-size:14px}
+#hud{height:42px;display:flex;justify-content:space-around;align-items:center;background:#063d20;font-weight:900;font-size:13px}
 #game{position:relative;flex:1;min-height:0}
 canvas{width:100%;height:100%;display:block;touch-action:none}
-#tip{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:#000b;padding:7px 12px;border-radius:18px;font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}
+#tip{position:absolute;left:50%;top:9px;transform:translateX(-50%);background:#000b;padding:7px 12px;border-radius:18px;font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}
 #bar{height:56px;display:flex;gap:8px;padding:7px;background:#052c17}
 button{flex:1;border:0;border-radius:12px;background:#ffd43b;color:#063519;font-weight:900;font-size:14px}
 button.white{background:#fff}
-#intro{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0009;padding:18px}
-.card{max-width:430px;background:white;color:#16351f;border-radius:22px;padding:22px;text-align:center;box-shadow:0 15px 50px #000b}
-.card h2{margin:0 0 7px;color:#075b2a}
-.card p{line-height:1.4;margin:7px 0}
+#intro,#result{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0009;padding:18px}
+.card{max-width:440px;background:white;color:#16351f;border-radius:22px;padding:22px;text-align:center;box-shadow:0 15px 50px #000b}
+.card h2{margin:0 0 7px;color:#075b2a}.card p{line-height:1.4;margin:7px 0}
 .card button{height:46px;margin-top:8px;width:100%}
+.hidden{display:none!important}
+
+.game-summary{margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.08);line-height:1.65;font-weight:700}
+
 </style>
 </head>
 <body>
 <div id="app">
-<header>
-<img src="icon.png" alt="Icône">
-<div><h1>Jules Enock Lestekè</h1><small>🇭🇹 Jwèt Mab • Prototype Expert v3</small></div>
-</header>
-<div id="hud">
-<span>🏆 <b id="score">0</b></span>
-<span>🔵 Billes <b id="remaining">10</b></span>
-<span>🎯 Tirs <b id="shots">20</b></span>
-</div>
+<header><img src="icon.png"><div><h1>Jules Enock Lestekè</h1><small>🇭🇹 Jwèt Mab • Prototype 5 — comptage automatique</small></div></header>
+<div id="hud"><span>🏆 <b id="score">0</b></span><span>🔵 Dans le cercle : <b id="left">10</b></span><span>🎯 Tirs : <b id="shots">15</b></span></div>
 <div id="game">
 <canvas id="c"></canvas>
-<div id="tip">Touche la bille blanche, vise, puis relâche.</div>
-<div id="intro"><div class="card">
-<h2>🇭🇹 Jwèt Mab</h2>
-<p>Cette version utilise une vraie mécanique de tir : <b>direction + puissance + collision</b>.</p>
-<p>👆 Pars de la bille blanche et glisse vers la direction où tu veux tirer. Une ligne de visée te montre exactement la trajectoire.</p>
-<p>💥 Plus tu tires loin, plus le tir est puissant.</p>
-<button id="start">COMMENCER</button>
-</div></div>
+<div id="tip">Déplace ⚪ autour du cercle • puis tire vers une bille</div>
+<div id="intro"><div class="card"><h2>🇭🇹 Jwèt Mab</h2>
+<p><b>1.</b> Déplace la bille blanche autour du cercle pour choisir ton point de tir.</p>
+<p><b>2.</b> Fais glisser depuis la bille blanche vers la direction voulue. Plus tu glisses loin, plus le tir est puissant.</p>
+<p><b>3.</b> La bille blanche doit sortir du cercle après le tir. Si elle reste dedans, <b>le tir est perdu</b>.</p>
+<button id="start">COMMENCER</button></div></div>
+<div id="result" class="hidden"><div class="card"><h2 id="resultTitle"></h2><p id="resultText"></p><button id="again">REJOUER</button></div></div>
 </div>
-<div id="bar"><button id="new">Nouvelle partie</button><button class="white" id="rules">Comment jouer</button></div>
+<div id="bar"><button id="new">Nouvelle partie</button><button class="white" id="rules">Règles</button></div>
 </div>
-
 <script>
-const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
-let W=0,H=0,D=1,cx=0,cy=0,R=0;
-let shooter=null,balls=[],drag=false,aimX=0,aimY=0,score=0,shots=20,turn=1,playing=false;
-const palette=['#e53935','#1e88e5','#43a047','#fb8c00','#8e24aa','#00acc1','#d81b60','#6d4c41','#3949ab','#7cb342'];
+const C=document.getElementById('c'),ctx=C.getContext('2d');
+let W,H,D,cx,cy,R,shooter,balls,score,shots,phase='intro',dragMode=null,aimX,aimY;
+const cols=['#e53935','#1e88e5','#43a047','#fb8c00','#8e24aa','#00acc1','#d81b60','#6d4c41','#3949ab','#7cb342'];
 
 function resize(){
- const r=canvas.getBoundingClientRect(); W=r.width;H=r.height;D=Math.min(devicePixelRatio||1,2);
- canvas.width=W*D;canvas.height=H*D;ctx.setTransform(D,0,0,D,0,0);
- cx=W/2;cy=H/2+12;R=Math.min(W*.42,H*.38);
- if(shooter){shooter.x=cx; shooter.y=cy+R*.72}
+ const r=C.getBoundingClientRect();W=r.width;H=r.height;D=Math.min(devicePixelRatio||1,2);
+ C.width=W*D;C.height=H*D;ctx.setTransform(D,0,0,D,0,0);
+ cx=W/2;cy=H/2+10;R=Math.min(W*.39,H*.36);
+ if(shooter && shooter.placed){ // keep it on its current angular position
+   const a=shooter.angle;
+   shooter.x=cx+Math.cos(a)*(R+shooter.r+10); shooter.y=cy+Math.sin(a)*(R+shooter.r+10);
+ }
 }
 window.addEventListener('resize',resize);
 
-function reset(){
- score=0;shots=20;turn=1;playing=true;balls=[];
- const spots=[
- [-.52,-.10],[-.27,-.33],[0,-.34],[.27,-.33],[.52,-.10],
- [-.39,.15],[-.13,.08],[.15,.08],[.39,.15],[0,.34]
- ];
- spots.forEach((p,i)=>balls.push({
-   x:cx+p[0]*R,y:cy+p[1]*R,r:14,color:palette[i],vx:0,vy:0,active:true
- }));
- shooter={x:cx,y:cy+R*.72,r:17,vx:0,vy:0};
- hud();
+function updateHUD(){
+  const s=document.getElementById('score'); if(s) s.textContent=score;
+  const r=document.getElementById('remaining'); if(r) r.textContent=balls.filter(b=>b.active).length;
+  const t=document.getElementById('shots'); if(t) t.textContent=shots;
+  const w=document.getElementById('won'); if(w) w.textContent=won;
+}
+
+function newGame(){
+ score=0;shots=15;phase='place';balls=[];
+ const spots=[[-.52,-.12],[-.27,-.34],[0,-.35],[.27,-.34],[.52,-.12],[-.40,.14],[-.14,.08],[.15,.08],[.40,.14],[0,.34]];
+ spots.forEach((p,i)=>balls.push({x:cx+p[0]*R,y:cy+p[1]*R,r:14,c:cols[i],vx:0,vy:0,active:true}));
+ shooter={r:17,angle:-Math.PI/2,placed:true,vx:0,vy:0,active:true};
+ placeShooter();hud();
+
+  updateHUD();
+}
+function placeShooter(){
+ shooter.x=cx+Math.cos(shooter.angle)*(R+shooter.r+10);
+ shooter.y=cy+Math.sin(shooter.angle)*(R+shooter.r+10);
 }
 function hud(){
  document.getElementById('score').textContent=score;
- document.getElementById('remaining').textContent=balls.filter(b=>b.active).length;
+ document.getElementById('left').textContent=balls.filter(b=>b.active).length;
  document.getElementById('shots').textContent=shots;
 }
-function d(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
-function pos(e){
- const r=canvas.getBoundingClientRect(),p=e.touches?e.touches[0]:e;
- return {x:p.clientX-r.left,y:p.clientY-r.top};
-}
-function drawBall(b){
+function p(e){const r=C.getBoundingClientRect(),q=e.touches?e.touches[0]:e;return{x:q.clientX-r.left,y:q.clientY-r.top}}
+function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function drawBall(b,white=false){
  if(!b.active)return;
- const g=ctx.createRadialGradient(b.x-b.r*.35,b.y-b.r*.4,2,b.x,b.y,b.r);
- g.addColorStop(0,'#fff');g.addColorStop(.16,b.color);g.addColorStop(1,'#111');
- ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
- ctx.strokeStyle='#ffffff99';ctx.lineWidth=1.5;ctx.stroke();
+ const r=b.r,g=ctx.createRadialGradient(b.x-r*.35,b.y-r*.4,2,b.x,b.y,r);
+ g.addColorStop(0,'#fff');g.addColorStop(.17,white?'#fafafa':b.c);g.addColorStop(1,'#111');
+ ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.x,b.y,r,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#fff9';ctx.lineWidth=1.5;ctx.stroke();
 }
 function draw(){
  ctx.clearRect(0,0,W,H);
- const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#d5b16b');g.addColorStop(1,'#8b5d2e');
- ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
- // arena
- ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
- ctx.fillStyle='rgba(255,240,190,.16)';ctx.fill();
- ctx.fill();
+ const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#d7b472');bg.addColorStop(1,'#8b5d2e');
+ ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fillStyle='#f7dda255';ctx.fill();
  ctx.strokeStyle='#fff0a8';ctx.lineWidth=6;ctx.stroke();
  ctx.strokeStyle='#5f3b19';ctx.lineWidth=2;ctx.stroke();
 
- // aiming preview: clear, proportional and capped
- if(drag && shooter){
+ // outer aiming zone
+ if(phase==='place'){
+   ctx.strokeStyle='#ffd43b99';ctx.lineWidth=2;ctx.setLineDash([6,6]);
+   ctx.beginPath();ctx.arc(cx,cy,R+shooter.r+10,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+ }
+ // aiming line
+ if(phase==='aim' && dragMode==='aim'){
    const dx=aimX-shooter.x,dy=aimY-shooter.y,L=Math.hypot(dx,dy);
-   if(L>4){
-     const ux=dx/L,uy=dy/L,preview=Math.min(190,L*3.2);
-     ctx.save();
+   if(L>3){
+     const ux=dx/L,uy=dy/L, len=Math.min(260,L*3.1);
      ctx.setLineDash([9,7]);ctx.strokeStyle='#fff';ctx.lineWidth=3;
-     ctx.beginPath();ctx.moveTo(shooter.x,shooter.y);ctx.lineTo(shooter.x+ux*preview,shooter.y+uy*preview);ctx.stroke();
-     ctx.restore();
-     ctx.fillStyle='#ffd43b';ctx.beginPath();ctx.arc(shooter.x+ux*preview,shooter.y+uy*preview,7,0,Math.PI*2);ctx.fill();
-     ctx.fillStyle='#fff';ctx.font='bold 13px system-ui';
-     ctx.fillText('Puissance '+Math.min(100,Math.round(L/2.2))+'%',12,H-13);
+     ctx.beginPath();ctx.moveTo(shooter.x,shooter.y);ctx.lineTo(shooter.x+ux*len,shooter.y+uy*len);ctx.stroke();ctx.setLineDash([]);
+     ctx.fillStyle='#ffd43b';ctx.beginPath();ctx.arc(shooter.x+ux*len,shooter.y+uy*len,7,0,Math.PI*2);ctx.fill();
+     ctx.fillStyle='#fff';ctx.font='bold 13px system-ui';ctx.fillText('Puissance '+Math.min(100,Math.round(L/2.2))+'%',12,H-13);
    }
  }
- balls.forEach(drawBall);
- if(shooter) drawBall({...shooter,color:'#f7f7f7',r:17,active:true});
+ balls.forEach(b=>drawBall(b,false));
+ if(shooter.active)drawBall(shooter,true);
  requestAnimationFrame(draw);
 }
 
 function start(e){
- if(!playing||shots<=0)return;
- const p=pos(e);
- if(d(p,shooter)<45){drag=true;aimX=p.x;aimY=p.y;e.preventDefault()}
+ if(phase!=='place'&&phase!=='aim')return;
+ const q=p(e);
+ if(phase==='place'){
+   if(distance(q,shooter)<48){dragMode='place';e.preventDefault()}
+ }else if(phase==='aim'){
+   if(distance(q,shooter)<48){dragMode='aim';aimX=q.x;aimY=q.y;e.preventDefault()}
+ }
 }
 function move(e){
- if(!drag)return;
- const p=pos(e);aimX=p.x;aimY=p.y;e.preventDefault();
+ if(!dragMode)return;
+ const q=p(e);
+ if(dragMode==='place'){
+   // Move only on the legal outside ring: player chooses angle around the circle.
+   let a=Math.atan2(q.y-cy,q.x-cx);
+   shooter.angle=a;placeShooter();
+ }else{aimX=q.x;aimY=q.y}
+ e.preventDefault();
 }
 function end(e){
- if(!drag)return;drag=false;
+ if(!dragMode)return;
+ if(dragMode==='place'){dragMode=null;phase='aim';return}
  const dx=aimX-shooter.x,dy=aimY-shooter.y,L=Math.hypot(dx,dy);
- if(L<10)return;
- // Direction is exactly where the finger points.
+ dragMode=null;
+ if(L<12)return;
  const ux=dx/L,uy=dy/L;
- // Strong, controllable power: 0..31 px/frame.
- const power=Math.min(31,5+L*.22);
+ // Deliberately strong but controllable: 4..36 px/frame.
+ const power=Math.min(36,4+L*.25);
  shooter.vx=ux*power;shooter.vy=uy*power;
- shots--;hud();physics();
+ shots--; shotsUsed++;phase='moving';hud();simulate();
 }
 
-canvas.addEventListener('mousedown',start);
-canvas.addEventListener('mousemove',move);
-window.addEventListener('mouseup',end);
-canvas.addEventListener('touchstart',start,{passive:false});
-canvas.addEventListener('touchmove',move,{passive:false});
-window.addEventListener('touchend',end,{passive:false});
-
-function physics(){
+function simulate(){
  let stable=0,frames=0;
- const timer=setInterval(()=>{
+ const t=setInterval(()=>{
   frames++;
   shooter.x+=shooter.vx;shooter.y+=shooter.vy;
-  shooter.vx*=.965;shooter.vy*=.965;
+  shooter.vx*=.975;shooter.vy*=.975;
 
-  // Wall bounce keeps the shooter playable.
-  if(shooter.x-shooter.r<0){shooter.x=shooter.r;shooter.vx=Math.abs(shooter.vx)*.82}
-  if(shooter.x+shooter.r>W){shooter.x=W-shooter.r;shooter.vx=-Math.abs(shooter.vx)*.82}
-  if(shooter.y-shooter.r<0){shooter.y=shooter.r;shooter.vy=Math.abs(shooter.vy)*.82}
-  if(shooter.y+shooter.r>H){shooter.y=H-shooter.r;shooter.vy=-Math.abs(shooter.vy)*.82}
-
-  // shooter-ball collision, with real-ish impulse and separation
+  // Target collisions: elastic-ish impulse.
   for(const b of balls)if(b.active){
-    let dx=b.x-shooter.x,dy=b.y-shooter.y,dd=Math.hypot(dx,dy),min=shooter.r+b.r;
-    if(dd<min){
-      if(dd<.01){dx=1;dy=0;dd=1}
-      const nx=dx/dd,ny=dy/dd;
-      const overlap=min-dd;
-      b.x+=nx*overlap*.55;b.y+=ny*overlap*.55;
-      shooter.x-=nx*overlap*.45;shooter.y-=ny*overlap*.45;
-      const impact=Math.max(7,Math.hypot(shooter.vx,shooter.vy));
-      b.vx=nx*impact*1.22;b.vy=ny*impact*1.22;
-      shooter.vx*=.30;shooter.vy*=.30;
-    }
+   let dx=b.x-shooter.x,dy=b.y-shooter.y,d=Math.hypot(dx,dy),min=shooter.r+b.r;
+   if(d<min){
+    if(d<.01){dx=1;dy=0;d=1}
+    const nx=dx/d,ny=dy/d,over=min-d;
+    shooter.x-=nx*over*.48;shooter.y-=ny*over*.48;
+    b.x+=nx*over*.52;b.y+=ny*over*.52;
+    const impact=Math.max(5,Math.hypot(shooter.vx,shooter.vy));
+    // Target gets a strong forward impulse; shooter loses energy naturally.
+    b.vx=nx*impact*1.28;b.vy=ny*impact*1.28;
+    shooter.vx*=.46;shooter.vy*=.46;
+   }
   }
-
-  // marble-to-marble collisions
+  // Target-target collisions.
   for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
-    const a=balls[i],b=balls[j];if(!a.active||!b.active)continue;
-    let dx=b.x-a.x,dy=b.y-a.y,dd=Math.hypot(dx,dy),min=a.r+b.r;
-    if(dd<min){
-      if(dd<.01){dx=1;dy=0;dd=1}
-      const nx=dx/dd,ny=dy/dd,over=min-dd;
-      a.x-=nx*over/2;a.y-=ny*over/2;b.x+=nx*over/2;b.y+=ny*over/2;
-      const rv=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
-      if(rv<0){const impulse=-rv*.92;a.vx-=nx*impulse;a.vy-=ny*impulse;b.vx+=nx*impulse;b.vy+=ny*impulse}
-    }
+   const a=balls[i],b=balls[j];if(!a.active||!b.active)continue;
+   let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),min=a.r+b.r;
+   if(d<min){
+    if(d<.01){dx=1;dy=0;d=1}
+    const nx=dx/d,ny=dy/d,ov=min-d;
+    a.x-=nx*ov/2;a.y-=ny*ov/2;b.x+=nx*ov/2;b.y+=ny*ov/2;
+    const rv=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
+    if(rv<0){const imp=-rv*.9;a.vx-=nx*imp;a.vy-=ny*imp;b.vx+=nx*imp;b.vy+=ny*imp}
+   }
   }
-
   for(const b of balls)if(b.active){
-    b.x+=b.vx;b.y+=b.vy;b.vx*=.985;b.vy*=.985;
-    const dd=Math.hypot(b.x-cx,b.y-cy);
-    // Once the center of the marble crosses the boundary, it is OUT.
-    if(dd>R+b.r*.35){b.active=false;score+=10}
-    else if(dd>R-b.r){
-      const nx=(b.x-cx)/dd,ny=(b.y-cy)/dd;
-      b.x=cx+nx*(R-b.r);b.y=cy+ny*(R-b.r);
-      const vn=b.vx*nx+b.vy*ny;
-      if(vn>0){b.vx-=nx*vn*1.55;b.vy-=ny*vn*1.55}
-    }
+   b.x+=b.vx;b.y+=b.vy;b.vx*=.985;b.vy*=.985;
+   const d=Math.hypot(b.x-cx,b.y-cy);
+   // A target is out once its center crosses the circle boundary.
+   if(d>R+b.r*.15){b.active=false;score+=10}
+   else if(d>R-b.r){
+    const nx=(b.x-cx)/d,ny=(b.y-cy)/d;b.x=cx+nx*(R-b.r);b.y=cy+ny*(R-b.r);
+    const vn=b.vx*nx+b.vy*ny;
+    if(vn>0){b.vx-=nx*vn*1.35;b.vy-=ny*vn*1.35}
+   }
   }
+
   hud();
+  const ss=Math.hypot(shooter.vx,shooter.vy),bs=balls.reduce((s,b)=>s+(b.active?Math.hypot(b.vx,b.vy):0),0);
+  if(ss<.35&&bs<.5)stable++;else stable=0;
 
-  const speed=Math.hypot(shooter.vx,shooter.vy);
-  const bs=balls.reduce((s,b)=>s+(b.active?Math.hypot(b.vx,b.vy):0),0);
-  if(speed<.35 && bs<.5)stable++;else stable=0;
-
-  if(stable>8 || frames>650){
-    clearInterval(timer);
-    shooter.x=cx;shooter.y=cy+R*.72;shooter.vx=shooter.vy=0;
-    if(!balls.some(b=>b.active)){setTimeout(()=>alert('🎉 BRAVO ! Tu as sorti toutes les billes. Score : '+score),80)}
-    else if(shots<=0){setTimeout(()=>alert('🏁 Partie terminée. Score : '+score),80)}
+  if(stable>10||frames>750){
+   clearInterval(t);
+   // CRITICAL RULE: shooter must escape the circle. If it stops inside, the shot is lost.
+   const shooterInside=Math.hypot(shooter.x-cx,shooter.y-cy)<R-shooter.r*.15;
+   if(shooterInside){
+     finish(false,'⚪ Bille blanche restée dans le cercle','Tir perdu : la bille blanche n’a pas eu assez de puissance pour ressortir. Dans cette version, tu es bloqué et la partie s’arrête.');
+     return;
+   }
+   if(!balls.some(b=>b.active))finish(true,'🎉 Partie gagnée !','Toutes les billes ont été sorties. Score : '+score);
+   else if(shots<=0)finish(true,'🏁 Fin de la partie','Score final : '+score);
+   else{phase='place';placeShooter();hud();}
   }
  },16);
 }
-
-document.getElementById('start').onclick=()=>{document.getElementById('intro').style.display='none';reset()};
-document.getElementById('new').onclick=()=>{document.getElementById('intro').style.display='none';reset()};
-document.getElementById('rules').onclick=()=>alert(
-'COMMENT JOUER\\n\\n1. Touche la bille blanche.\\n2. Fais glisser ton doigt dans la direction où tu veux tirer.\\n3. Plus tu glisses loin, plus le tir est puissant.\\n4. La ligne blanche montre la direction.\\n5. Fais sortir les billes du cercle. Chaque bille vaut 10 points.\\n\\nConseil : vise directement une bille et utilise un glissement moyen pour commencer.'
-);
-resize();reset();draw();
+function finish(win,title,text){
+ phase='over';
+ document.getElementById('resultTitle').textContent=title;
+ document.getElementById('resultText').textContent=text;
+ document.getElementById('result').classList.remove('hidden');
+}
+function rules(){
+ alert('RÈGLES DU PROTOTYPE\\n\\n• La bille blanche commence TOUJOURS à l’extérieur du cercle.\\n• Fais glisser la bille blanche autour du cercle pour choisir ton point de tir.\\n• Ensuite, tire dans la direction voulue. La longueur du geste contrôle la puissance.\\n• Une bille cible compte seulement lorsqu’elle franchit réellement la ligne du cercle.\\n• La bille blanche doit également ressortir du cercle. Si elle reste à l’intérieur faute de puissance, le tir est perdu et la partie s’arrête.\\n• 15 tirs disponibles.');
+}
+document.getElementById('start').onclick=()=>{document.getElementById('intro').classList.add('hidden');newGame()};
+document.getElementById('new').onclick=()=>{document.getElementById('result').classList.add('hidden');document.getElementById('intro').classList.add('hidden');newGame()};
+document.getElementById('again').onclick=()=>{document.getElementById('result').classList.add('hidden');newGame()};
+document.getElementById('rules').onclick=rules;
+resize();newGame();draw();
 </script>
-</body>
-</html>
+
+<div id="wonHud" style="position:fixed;left:12px;bottom:12px;z-index:20;padding:8px 11px;border-radius:12px;background:rgba(0,0,0,.62);color:#fff;font:600 14px system-ui;backdrop-filter:blur(5px)">
+  Billes gagnées : <span id="won">0</span>
+</div>
+
+</body></html>
