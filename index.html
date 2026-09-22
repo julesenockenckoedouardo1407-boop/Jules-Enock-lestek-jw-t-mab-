@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0b5d2a">
+<title>Jules Enock Lestekè — Jwèt Mab</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:system-ui,Arial,sans-serif;background:#082b18;color:white}
+body{display:flex;justify-content:center}
+#app{width:min(100%,720px);height:100%;display:flex;flex-direction:column;background:linear-gradient(#0b5d2a,#063b1d)}
+header{height:72px;display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(0,0,0,.25);border-bottom:2px solid #f5c542}
+header img{width:52px;height:52px;border-radius:14px;object-fit:cover}
+.title{font-weight:900;line-height:1.05}.title b{font-size:21px;color:#ffd43b}.title span{font-size:13px;color:#fff}
+#hud{display:flex;justify-content:space-between;padding:8px 14px;background:#063519;font-weight:800}
+#game{position:relative;flex:1;min-height:0}
+canvas{width:100%;height:100%;display:block;touch-action:none}
+#message{position:absolute;left:50%;top:18px;transform:translateX(-50%);background:rgba(0,0,0,.65);padding:8px 14px;border-radius:20px;font-size:13px;text-align:center;pointer-events:none;white-space:nowrap}
+#controls{padding:9px 12px;background:#052d17;display:flex;gap:8px}
+button{flex:1;border:0;border-radius:14px;padding:12px;font-size:15px;font-weight:900;color:#063b1d;background:#ffd43b}
+button.secondary{background:#fff}
+#help{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.58);padding:24px}
+.card{max-width:430px;background:#fff;color:#123;border-radius:22px;padding:22px;text-align:center;box-shadow:0 15px 50px #0008}
+.card h2{margin:0 0 8px;color:#08752f}.card p{margin:8px 0;line-height:1.45}
+.card button{margin-top:10px;width:100%}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <img src="icon.png" alt="Jules Enock Lestekè">
+  <div class="title"><b>Jules Enock Lestekè</b><br><span>Jwèt Mab • Prototype 1</span></div>
+</header>
+<div id="hud"><span>🏆 Points : <b id="score">0</b></span><span>🎯 Billes : <b id="left">10</b></span><span>🔵 Tour : <b id="turn">1</b></span></div>
+<div id="game">
+  <canvas id="canvas"></canvas>
+  <div id="message">Glisse depuis la bille blanche vers les billes à toucher.</div>
+  <div id="help">
+    <div class="card">
+      <h2>🇭🇹 Jwèt Mab</h2>
+      <p><b>Objectif :</b> touche les billes dans le cercle avec ta bille tireuse.</p>
+      <p>👆 Fais glisser ton doigt depuis la bille blanche dans la direction opposée à ton tir, puis relâche.</p>
+      <p>Chaque bille sortie du cercle rapporte <b>10 points</b>.</p>
+      <button id="start">COMMENCER</button>
+    </div>
+  </div>
+</div>
+<div id="controls">
+  <button id="new">Nouvelle partie</button>
+  <button class="secondary" id="rules">Règles</button>
+</div>
+</div>
+
+<script>
+const canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d');
+let W,H,dpr=1, cx,cy,R, shooter, marbles=[], score=0, shots=10, turn=1, dragging=false, aim={x:0,y:0};
+const colors=['#ef4444','#2563eb','#16a34a','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+
+function resize(){
+  const box=canvas.getBoundingClientRect(); dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=box.width*dpr; canvas.height=box.height*dpr; W=box.width; H=box.height;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  cx=W/2; cy=H/2+12; R=Math.min(W,H)*.33;
+  if(shooter) shooter.x=cx; if(shooter) shooter.y=H-R*.72;
+}
+window.addEventListener('resize',resize);
+
+function newGame(){
+  score=0;shots=10;turn=1;
+  marbles=[];
+  const n=10;
+  for(let i=0;i<n;i++){
+    const a=i/n*Math.PI*2 + .12, rr=R*.56;
+    marbles.push({x:cx+Math.cos(a)*rr,y:cy+Math.sin(a)*rr,r:13,color:colors[i%colors.length],vx:0,vy:0,active:true});
+  }
+  shooter={x:cx,y:H-R*.72,r:16,vx:0,vy:0,active:true};
+  updateHud();
+}
+function updateHud(){
+  document.getElementById('score').textContent=score;
+  document.getElementById('left').textContent=shots;
+  document.getElementById('turn').textContent=turn;
+}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function drawMarble(m){
+  if(!m.active)return;
+  const g=ctx.createRadialGradient(m.x-m.r*.35,m.y-m.r*.4,2,m.x,m.y,m.r);
+  g.addColorStop(0,'#fff');g.addColorStop(.16,m.color);g.addColorStop(1,'#111');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(m.x,m.y,m.r,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#ffffff88';ctx.lineWidth=1.5;ctx.stroke();
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#d8b878');bg.addColorStop(1,'#9b6b35');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  // ground specks
+  for(let i=0;i<100;i++){ctx.fillStyle='rgba(70,40,10,.12)';ctx.fillRect((i*83)%W,(i*47)%H,2,2)}
+  // circle
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fillStyle='rgba(255,240,190,.14)';ctx.fill();
+  ctx.strokeStyle='#fff1b0';ctx.lineWidth=5;ctx.stroke();
+  ctx.strokeStyle='#6b431d';ctx.lineWidth=2;ctx.stroke();
+  marbles.forEach(drawMarble);
+  drawMarble({...shooter,color:'#f5f5f5',active:true});
+  // aim line
+  if(dragging){
+    ctx.setLineDash([8,7]);ctx.strokeStyle='#fff';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(shooter.x,shooter.y);ctx.lineTo(aim.x,aim.y);ctx.stroke();ctx.setLineDash([]);
+    const dx=shooter.x-aim.x,dy=shooter.y-aim.y,L=Math.hypot(dx,dy)||1;
+    ctx.fillStyle='#ffd43b';ctx.font='bold 14px system-ui';ctx.fillText('Puissance: '+Math.min(100,Math.round(L/2))+'%',14,H-18);
+  }
+  requestAnimationFrame(draw);
+}
+function pointerPos(e){
+  const r=canvas.getBoundingClientRect();
+  const p=e.touches?e.touches[0]:e;
+  return {x:p.clientX-r.left,y:p.clientY-r.top};
+}
+function startDrag(e){
+  const p=pointerPos(e);
+  if(dist(p,shooter)<45 && shots>0){dragging=true;aim=p;e.preventDefault()}
+}
+function moveDrag(e){if(dragging){aim=pointerPos(e);e.preventDefault()}}
+function endDrag(e){
+  if(!dragging)return; dragging=false;
+  const p=aim,dx=shooter.x-p.x,dy=shooter.y-p.y,L=Math.hypot(dx,dy);
+  if(L<12)return;
+  const power=Math.min(22,L*.10+3), ux=dx/L,uy=dy/L;
+  shooter.vx=ux*power;shooter.vy=uy*power;
+  shots--;updateHud();shoot();
+}
+function shoot(){
+  const timer=setInterval(()=>{
+    shooter.x+=shooter.vx;shooter.y+=shooter.vy;
+    shooter.vx*=.94;shooter.vy*=.94;
+    if(shooter.x-shooter.r<0||shooter.x+shooter.r>W) shooter.vx*=-.8;
+    if(shooter.y-shooter.r<0||shooter.y+shooter.r>H) shooter.vy*=-.8;
+    let moving=Math.hypot(shooter.vx,shooter.vy)>.25;
+    for(const m of marbles){
+      if(!m.active)continue;
+      const d=dist(shooter,m), min=shooter.r+m.r;
+      if(d<min){
+        const nx=(m.x-shooter.x)/(d||1),ny=(m.y-shooter.y)/(d||1);
+        const push=2.2;
+        m.x+=nx*push;m.y+=ny*push;
+        m.vx=nx*Math.max(2,Math.hypot(shooter.vx,shooter.vy)*.8);
+        m.vy=ny*Math.max(2,Math.hypot(shooter.vx,shooter.vy)*.8);
+        shooter.vx*=.45;shooter.vy*=.45;
+      }
+    }
+    for(const m of marbles){
+      if(!m.active)continue;
+      m.x+=m.vx;m.y+=m.vy;m.vx*=.93;m.vy*=.93;
+      const d=Math.hypot(m.x-cx,m.y-cy);
+      if(d>R+25){m.active=false;score+=10}
+      if(d>R-m.r){const nx=(m.x-cx)/d,ny=(m.y-cy)/d; m.x=cx+nx*(R-m.r);m.y=cy+ny*(R-m.r);m.vx*=-.65;m.vy*=-.65}
+    }
+    if(!moving && Math.abs(shooter.vx)<.25 && Math.abs(shooter.vy)<.25){
+      clearInterval(timer);shooter.x=cx;shooter.y=H-R*.72;shooter.vx=shooter.vy=0;turn++;updateHud();
+      if(!marbles.some(m=>m.active)){endGame('🎉 Bravo ! Toutes les billes sont sorties.');}
+      else if(shots<=0){endGame('🏁 Fin de la partie ! Score : '+score);}
+    }
+  },16);
+}
+function endGame(msg){
+  setTimeout(()=>alert(msg),100);
+}
+canvas.addEventListener('mousedown',startDrag);canvas.addEventListener('mousemove',moveDrag);window.addEventListener('mouseup',endDrag);
+canvas.addEventListener('touchstart',startDrag,{passive:false});canvas.addEventListener('touchmove',moveDrag,{passive:false});window.addEventListener('touchend',endDrag,{passive:false});
+document.getElementById('start').onclick=()=>{document.getElementById('help').style.display='none';newGame()};
+document.getElementById('new').onclick=()=>{document.getElementById('help').style.display='none';newGame()};
+document.getElementById('rules').onclick=()=>alert('Règle du prototype : vise avec ta bille blanche, tire et essaie de faire sortir les billes du cercle. Chaque bille sortie = 10 points. 10 tirs sont disponibles.');
+resize();newGame();draw();
+</script>
+</body>
+</html>
